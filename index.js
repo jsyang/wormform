@@ -3,7 +3,7 @@ PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
 let renderer;
 const scene = new PIXI.Container();
 
-const TILESIZE      = 64;
+const TILESIZE      = 48;
 const TILESIZE_8THS = TILESIZE / 8;
 const OFFSETS       = [0, 1, 2, 3, 4].map(o => o * .25 * TILESIZE);
 const COLORS        = {
@@ -387,6 +387,8 @@ for (let i = 0; i < 2; i++) {
     }
 }
 
+
+// A
 addTileAt(2, 3, 1, -90);
 addTileAt(2, 4, 1,);
 addTileAt(4, 3, 2, 90);
@@ -395,5 +397,4 @@ addTileAt(5, 3, 3, -90);
 addTileAt(5, 4, 3, 90);
 addTileAt(3, 3, 4, 0);
 addTileAt(3, 4, 4, 0);
-
 
