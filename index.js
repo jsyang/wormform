@@ -1,17 +1,23 @@
 PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
 
+let tileIndex = 0;
+let saved     = localStorage.getItem('wormform');
+
+saved = saved ? JSON.parse(saved) : [];
+
 let renderer;
 const scene = new PIXI.Container();
 
-const TILESIZE      = 48;
+const TILESIZE      = innerWidth > 700 ? 64 : 48;
 const TILESIZE_8THS = TILESIZE / 8;
 const OFFSETS       = [0, 1, 2, 3, 4].map(o => o * .25 * TILESIZE);
 const COLORS        = {
-    WHITE: 0xffffff,
-    BLACK: 0x000000,
-    RED:   0xff0000,
-    GREEN: 0x00ff00,
-    BLUE:  0x0000ff,
+    WHITE:    0xffffff,
+    BLACK:    0x000000,
+    RED:      0xff0000,
+    GREEN:    0x00ff00,
+    BLUE:     0x0000ff,
+    DEEPBLUE: 0x004488,
 }
 
 const colorFG = COLORS.WHITE;
@@ -33,6 +39,12 @@ const ui                = (() => {
 
     text.x = -60;
     text.y = -30;
+
+    const clearButton       = new PIXI.Graphics();
+    clearButton.x           = -100;
+    clearButton.y           = 0;
+    clearButton.interactive = true;
+    clearButton.buttonMode  = true;
 
     container.x = innerWidth;
     container.y = innerHeight;
@@ -142,6 +154,18 @@ function onDragStart(event) {
     this.draggedDist = 0; // cumulative, if below a certain threshold we consider it a click
 }
 
+function onDragMove(event) {
+    if (this.dragging) {
+        const {x, y}    = this.data.getLocalPosition(this.parent);
+        this.position.x = x;
+        this.position.y = y;
+        this.draggedDist += Math.abs(x + this.predragX) + Math.abs(y + this.predragY);
+
+        const {x: gx, y: gy} = event.data.global;
+        isDraggingIntoTrash  = gx > innerWidth - 100 && gy > innerHeight - 100;
+    }
+}
+
 function onDragEnd() {
     this.alpha    = 1;
     this.dragging = false;
@@ -161,18 +185,9 @@ function onDragEnd() {
     if (isDraggingIntoTrash) {
         stage.removeChild(this);
         isDraggingIntoTrash = false;
-    }
-}
-
-function onDragMove(event) {
-    if (this.dragging) {
-        const {x, y}    = this.data.getLocalPosition(this.parent);
-        this.position.x = x;
-        this.position.y = y;
-        this.draggedDist += Math.abs(x + this.predragX) + Math.abs(y + this.predragY);
-
-        const {x: gx, y: gy} = event.data.global;
-        isDraggingIntoTrash  = gx > innerWidth - 100 && gy > innerHeight - 100;
+        deleteSaved(this);
+    } else {
+        updateTileDXDY(this);
     }
 }
 
@@ -183,7 +198,38 @@ function onTapStartOriginal(event) {
     onDragStart.call(newTile, event);
 }
 
-function createTile(pieceNumber, dx = 0, dy = 0, isOriginal = false, lineStyle) {
+const colorBGOriginal = COLORS.DEEPBLUE;
+
+function upsertSaved(tile) {
+    const foundSaved = saved.find(s => s.id === tile.id);
+    if (foundSaved) {
+        foundSaved.id    = tile.id;
+        foundSaved.x     = tile.x;
+        foundSaved.y     = tile.y;
+        foundSaved.pN    = tile.pN;
+        foundSaved.angle = tile.angle % 360;
+        localStorage.setItem('wormform', JSON.stringify(saved));
+    } else {
+        saved.push(tile);
+    }
+}
+
+function deleteSaved(g) {
+    const foundSavedIndex = saved.findIndex(s => s.id === g.id);
+    if (foundSavedIndex >= 0) {
+        saved.splice(foundSavedIndex, 1);
+        localStorage.setItem('wormform', JSON.stringify(saved));
+    }
+}
+
+function updateTileDXDY(g) {
+    g.dx = g.x / TILESIZE - .5;
+    g.dy = g.y / TILESIZE - .5;
+
+    upsertSaved({id: g.id, x: g.dx, y: g.dy, pN: g.pN, angle: g.angle});
+}
+
+function createTile(pieceNumber, dx = 0, dy = 0, isOriginal = false, angle, lineStyle) {
     lineStyle = lineStyle || {
         width: 1,
         color: colorFG,
@@ -192,7 +238,7 @@ function createTile(pieceNumber, dx = 0, dy = 0, isOriginal = false, lineStyle) 
 
     const g = new PIXI.Graphics();
     g.lineStyle(lineStyle.width, lineStyle.color, lineStyle.alpha);
-    g.beginFill(colorBG);
+    g.beginFill(isOriginal ? colorBGOriginal : colorBG);
     g.drawRect(0, 0, TILESIZE, TILESIZE);
     g.endFill();
 
@@ -392,6 +438,15 @@ function createTile(pieceNumber, dx = 0, dy = 0, isOriginal = false, lineStyle) 
             .on('mousedown', onTapStartOriginal)
             .on('touchstart', onTapStartOriginal);
     } else {
+        g.pivot.x = g.pivot.y = OFFSETS[2];
+        g.angle   = angle;
+
+        g.id = tileIndex;
+        g.pN = pieceNumber;
+        tileIndex++;
+
+        updateTileDXDY(g);
+
         g
             .on('mousedown', onDragStart)
             .on('touchstart', onDragStart)
@@ -407,9 +462,7 @@ function createTile(pieceNumber, dx = 0, dy = 0, isOriginal = false, lineStyle) 
 }
 
 function addTileAt(pN, x, y, angle = 0, isOriginal) {
-    const t   = createTile(pN, (x + .5) * TILESIZE, (y + .5) * TILESIZE, isOriginal);
-    t.pivot.x = t.pivot.y = OFFSETS[2];
-    t.angle   = angle;
+    const t = createTile(pN, (x + .5) * TILESIZE, (y + .5) * TILESIZE, isOriginal, angle);
 
     if (isOriginal) {
         scene.addChild(t);
@@ -422,10 +475,14 @@ function addTileAt(pN, x, y, angle = 0, isOriginal) {
 
 for (let i = 0; i < 2; i++) {
     for (let j = 1; j <= 9; j++) {
-        addTileAt(j + 9 * i, i, j - 1, 0, true);
+        addTileAt(j + 9 * i, i - .5, j - 1.5, 0, true);
     }
 }
 
+for (let i of saved) {
+    addTileAt(i.pN, i.x, i.y, i.angle);
+    tileIndex = Math.max(i.id, tileIndex);
+}
 
 // A
 /*
