@@ -40,11 +40,42 @@ const ui                = (() => {
     return container;
 })();
 
-const stage            = new PIXI.Container();
-stage.sortableChildren = true;
+const stage = new PIXI.Container();
+
+function onDragStartStage(event) {
+    this.dragging  = true;
+    this.predragX  = this.x;
+    this.predragY  = this.y;
+    this.predragCX = event.data.global.x;
+    this.predragCY = event.data.global.y;
+}
+
+function onDragMoveStage(event) {
+    if (this.dragging) {
+        const {x, y} = event.data.global;
+        this.x       = x - this.predragCX + this.predragX;
+        this.y       = y - this.predragCY + this.predragY;
+    }
+}
+
+function onDragEndStage() {
+    this.dragging = false;
+}
+
 
 scene.addChild(ui);
 scene.addChild(stage);
+
+stage.interactive = true;
+stage.hitArea     = new PIXI.Rectangle(-1e4, -1e4, 2e4, 2e4);
+stage.on('mousedown', onDragStartStage)
+    .on('touchstart', onDragStartStage)
+    .on('mouseup', onDragEndStage)
+    .on('mouseupoutside', onDragEndStage)
+    .on('touchend', onDragEndStage)
+    .on('touchendoutside', onDragEndStage)
+    .on('mousemove', onDragMoveStage)
+    .on('touchmove', onDragMoveStage);
 
 function onResize() {
     if (!renderer) {
@@ -98,6 +129,8 @@ onResize();
 step();
 
 function onDragStart(event) {
+    event.stopPropagation();
+
     // store a reference to the data
     // the reason for this is because of multitouch
     // we want to track the movement of this particular touch
@@ -131,14 +164,15 @@ function onDragEnd() {
     }
 }
 
-function onDragMove() {
+function onDragMove(event) {
     if (this.dragging) {
         const {x, y}    = this.data.getLocalPosition(this.parent);
         this.position.x = x;
         this.position.y = y;
         this.draggedDist += Math.abs(x + this.predragX) + Math.abs(y + this.predragY);
 
-        isDraggingIntoTrash = x > innerWidth - 100 && y > innerHeight - 100;
+        const {x: gx, y: gy} = event.data.global;
+        isDraggingIntoTrash  = gx > innerWidth - 100 && gy > innerHeight - 100;
     }
 }
 
@@ -376,7 +410,12 @@ function addTileAt(pN, x, y, angle = 0, isOriginal) {
     const t   = createTile(pN, (x + .5) * TILESIZE, (y + .5) * TILESIZE, isOriginal);
     t.pivot.x = t.pivot.y = OFFSETS[2];
     t.angle   = angle;
-    stage.addChild(t);
+
+    if (isOriginal) {
+        scene.addChild(t);
+    } else {
+        stage.addChild(t);
+    }
 
     return t;
 }
@@ -389,6 +428,7 @@ for (let i = 0; i < 2; i++) {
 
 
 // A
+/*
 addTileAt(2, 3, 1, -90);
 addTileAt(2, 4, 1,);
 addTileAt(4, 3, 2, 90);
@@ -397,4 +437,4 @@ addTileAt(5, 3, 3, -90);
 addTileAt(5, 4, 3, 90);
 addTileAt(3, 3, 4, 0);
 addTileAt(3, 4, 4, 0);
-
+*/
