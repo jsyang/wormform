@@ -23,6 +23,14 @@ const COLORS        = {
 const colorFG = COLORS.WHITE;
 const colorBG = COLORS.BLUE;
 
+function clearAllSaved() {
+    if (confirm('Clear everything?\nYou will also lose autosaved data!')) {
+        stage.removeChildren();
+        saved = [];
+        localStorage.setItem('wormform', null);
+    }
+}
+
 let isDraggingIntoTrash = false;
 let trashCircle;
 const ui                = (() => {
@@ -42,9 +50,25 @@ const ui                = (() => {
 
     const clearButton       = new PIXI.Graphics();
     clearButton.x           = -100;
-    clearButton.y           = 0;
+    clearButton.y           = -40;
+    // clearButton.beginFill(COLORS.RED);
+    // clearButton.drawRect(-70,0,70,40);
+    // clearButton.endFill();
+    clearButton.hitArea = new PIXI.Rectangle(-70,0,70,40);
+
+    const clearText = new PIXI.Text('CLEAR', {fontFamily: 'Arial', fontSize: 12, fill: COLORS.WHITE, align: 'center'});
+    clearText.x     = -55;
+    clearText.y     = 10;
+    clearButton.addChild(clearText);
+
     clearButton.interactive = true;
     clearButton.buttonMode  = true;
+    clearButton
+        .on('mousedown', clearAllSaved)
+        .on('touchstart', clearAllSaved);
+
+
+    container.addChild(clearButton);
 
     container.x = innerWidth;
     container.y = innerHeight;
@@ -75,8 +99,8 @@ function onDragEndStage() {
 }
 
 
-scene.addChild(ui);
 scene.addChild(stage);
+scene.addChild(ui);
 
 stage.interactive = true;
 stage.hitArea     = new PIXI.Rectangle(-1e4, -1e4, 2e4, 2e4);
